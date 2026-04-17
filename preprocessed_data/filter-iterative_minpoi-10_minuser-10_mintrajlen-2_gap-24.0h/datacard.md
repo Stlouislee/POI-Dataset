@@ -18,6 +18,8 @@
 The processed data is saved in JSONL format. Each line is a JSON object with the following fields:
 - `user`: User ID (String)
 - `poi`: POI ID (String)
+- `cat_id`: POI Category ID (String)
+- `cat_name`: POI Category Name (String)
 - `lat`: Latitude (Float)
 - `lon`: Longitude (Float)
 - `time`: UTC Unix Timestamp (Integer)

@@ -3,6 +3,7 @@ import csv
 import json
 import math
 import argparse
+import ast
 from collections import Counter, defaultdict
 import datetime as dt
 
@@ -11,6 +12,21 @@ def parse_time(time_str, fmt="tsmc"):
         return dt.datetime.strptime(time_str, "%a %b %d %H:%M:%S %z %Y")
     else:
         return dt.datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc)
+
+def parse_gowalla_category(cat_str):
+    cat_id, cat_name = 'unknown', 'unknown'
+    if not cat_str:
+        return cat_id, cat_name
+    try:
+        # String format: "[{'url': '/categories/45', 'name': 'Airport'}]"
+        cats = ast.literal_eval(cat_str)
+        if cats and isinstance(cats, list) and len(cats) > 0:
+            cat_url = cats[0].get('url', '')
+            cat_id = cat_url.split('/')[-1] if cat_url else 'unknown'
+            cat_name = cats[0].get('name', 'unknown')
+    except Exception:
+        pass
+    return str(cat_id), str(cat_name)
 
 def read_data(file_path, city):
     events = []
@@ -22,10 +38,14 @@ def read_data(file_path, city):
                     continue
                 uid = parts[0]
                 poi = parts[1]
+                cat_id = parts[2]
+                cat_name = parts[3]
                 lat, lon = parts[4], parts[5]
                 ts = parse_time(parts[7], "tsmc")
                 events.append({
-                    'user': uid, 'poi': poi, 'lat': float(lat), 'lon': float(lon), 
+                    'user': uid, 'poi': poi, 
+                    'cat_id': cat_id, 'cat_name': cat_name,
+                    'lat': float(lat), 'lon': float(lon), 
                     'time': int(ts.timestamp())
                 })
     else:
@@ -34,10 +54,16 @@ def read_data(file_path, city):
             for row in reader:
                 uid = row['UserId']
                 poi = row['PoiId']
+                
+                cat_str = row.get('PoiCategoryId', '')
+                cat_id, cat_name = parse_gowalla_category(cat_str)
+                
                 lat, lon = row['Latitude'], row['Longitude']
                 ts = parse_time(row['UTCTime'], "gowalla")
                 events.append({
-                    'user': uid, 'poi': poi, 'lat': float(lat), 'lon': float(lon), 
+                    'user': uid, 'poi': poi, 
+                    'cat_id': cat_id, 'cat_name': cat_name,
+                    'lat': float(lat), 'lon': float(lon), 
                     'time': int(ts.timestamp())
                 })
     return events
@@ -194,6 +220,8 @@ def create_datacard(out_dir, params, stats_list):
     md_content += "The processed data is saved in JSONL format. Each line is a JSON object with the following fields:\n"
     md_content += "- `user`: User ID (String)\n"
     md_content += "- `poi`: POI ID (String)\n"
+    md_content += "- `cat_id`: POI Category ID (String)\n"
+    md_content += "- `cat_name`: POI Category Name (String)\n"
     md_content += "- `lat`: Latitude (Float)\n"
     md_content += "- `lon`: Longitude (Float)\n"
     md_content += "- `time`: UTC Unix Timestamp (Integer)\n"
